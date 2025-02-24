@@ -48,26 +48,6 @@ class Channels {
     }
   }
 
-  //#region Public API methods
-  /// Create a [Channel] with friendly name and type.
-  ///
-  /// This operation creates a new channel entity on the backend.
-  Future<Channel> createChannelWithUniqueName(String uniqueName) async {
-    try {
-      final methodData = await FlutterTwilioConversationsPlatform.instance
-          .createChannelWithUniqueName(uniqueName);
-
-      final channelMap = Map<String, dynamic>.from(methodData);
-      _updateChannelFromMap(channelMap);
-      return _channelsMap[channelMap['sid']]!;
-    } on PlatformException catch (err) {
-      if (err.code == 'ERROR' || err.code == 'IllegalArgumentException') {
-        rethrow;
-      }
-      throw ErrorInfo(int.parse(err.code), err.message, err.details as int);
-    }
-  }
-
   /// Retrieves a [Channel] with the specified SID or unique name.
   Future<Channel> getChannel(String channelSidOrUniqueName) async {
     try {

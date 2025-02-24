@@ -56,11 +56,6 @@ abstract class FlutterTwilioConversationsPlatform extends PlatformInterface {
     throw UnimplementedError('createChannel() has not been implemented.');
   }
 
-  Future<Map<dynamic, dynamic>> createChannelWithUniqueName(String uniqueName) {
-    throw UnimplementedError(
-        'createChannelWithUniqueName() has not been implemented.');
-  }
-
   Future<dynamic> getChannel(String channelSidOrUniqueName) {
     throw UnimplementedError('getChannel() has not been implemented.');
   }

@@ -39,25 +39,8 @@ object ChannelsMethods {
         val friendlyName = call.argument<String>("friendlyName")
             ?: return result.error("ERROR", "Missing 'friendlyName'", null)
 
-        TwilioConversationsPlugin.chatClient?.createConversation(friendlyName, object : CallbackListener<Conversation> {
-            override fun onSuccess(newChannel: Conversation) {
-                Log.d("TwilioInfo", "ChannelsMethods.createChannel => onSuccess")
-                result.success(Mapper.channelToMap(pluginInstance, newChannel))
-            }
-
-            override fun onError(errorInfo: ErrorInfo) {
-                Log.d("TwilioInfo", "ChannelsMethods.createChannel => onError: $errorInfo")
-                result.error("${errorInfo.code}", errorInfo.message, errorInfo.status)
-            }
-        })
-    }
-
-    fun createChannelWithUniqueName(pluginInstance: TwilioConversationsPlugin, call: MethodCall, result: MethodChannel.Result) {
-        val uniqueName = call.argument<String>("uniqueName")
-            ?: return result.error("ERROR", "Missing 'uniqueName'", null)
-
         TwilioConversationsPlugin.chatClient?.conversationBuilder()
-            .withUniqueName(uniqueName)
+            .withUniqueName(friendlyName)
             .build(object : CallbackListener<Conversation> {
                 override fun onSuccess(newChannel: Conversation) {
                     Log.d("TwilioInfo", "ChannelsMethods.createChannel => onSuccess")
