@@ -57,7 +57,7 @@ public class ChannelsMethods {
                 flutterResult(Mapper.channelToDict(channel))
             } else {
                 SwiftTwilioConversationsPlugin.debug("ChannelsMethods.createChannel => onError: \(String(describing: result.error))")
-                flutterResult(FlutterError(code: "ERROR", message: "Error creating channel with friendlyName '\(friendlyName)': \(String(describing: result.error))", details: nil))
+                flutterResult(FlutterError(code: "ERROR", message: "Error creating channel with uniqueName '\(uniqueName)': \(String(describing: result.error))", details: nil))
             }
         })
     }
