@@ -37,6 +37,31 @@ public class ChannelsMethods {
         })
     }
 
+    public static func createChannelWithUniqueName(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+        guard let arguments = call.arguments as? [String: Any?] else {
+            return result(FlutterError(code: "MISSING_PARAMS", message: "Missing parameters", details: nil))
+        }
+
+        guard let uniqueName = arguments["uniqueName"] as? String else {
+            return result(FlutterError(code: "MISSING_PARAMS", message: "Missing 'uniqueName' parameter", details: nil))
+        }
+
+        let channelOptions: [String: Any] = [
+            TCHConversationOptionUniqueName: uniqueName,
+        ]
+
+        let flutterResult = result
+        SwiftTwilioConversationsPlugin.chatListener?.chatClient?.createConversation(options: channelOptions, completion: { (result: TCHResult, channel: TCHConversation?) in
+            if result.isSuccessful, let channel = channel {
+                SwiftTwilioConversationsPlugin.debug("ChannelsMethods.createChannel => onSuccess")
+                flutterResult(Mapper.channelToDict(channel))
+            } else {
+                SwiftTwilioConversationsPlugin.debug("ChannelsMethods.createChannel => onError: \(String(describing: result.error))")
+                flutterResult(FlutterError(code: "ERROR", message: "Error creating channel with friendlyName '\(friendlyName)': \(String(describing: result.error))", details: nil))
+            }
+        })
+    }
+
     public static func getChannel(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard let arguments = call.arguments as? [String: Any?] else {
             return result(FlutterError(code: "MISSING_PARAMS", message: "Missing parameters", details: nil))

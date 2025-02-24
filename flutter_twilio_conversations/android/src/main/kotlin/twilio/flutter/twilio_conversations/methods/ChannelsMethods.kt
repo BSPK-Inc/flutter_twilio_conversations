@@ -51,4 +51,23 @@ object ChannelsMethods {
             }
         })
     }
+
+    fun createChannelWithUniqueName(pluginInstance: TwilioConversationsPlugin, call: MethodCall, result: MethodChannel.Result) {
+        val uniqueName = call.argument<String>("uniqueName")
+            ?: return result.error("ERROR", "Missing 'uniqueName'", null)
+
+        TwilioConversationsPlugin.chatClient?.conversationBuilder()
+            .withUniqueName(uniqueName)
+            .build(object : CallbackListener<Conversation> {
+                override fun onSuccess(newChannel: Conversation) {
+                    Log.d("TwilioInfo", "ChannelsMethods.createChannel => onSuccess")
+                    result.success(Mapper.channelToMap(pluginInstance, newChannel))
+                }
+
+                override fun onError(errorInfo: ErrorInfo) {
+                    Log.d("TwilioInfo", "ChannelsMethods.createChannel => onError: $errorInfo")
+                    result.error("${errorInfo.code}", errorInfo.message, errorInfo.status)
+                }
+        })
+    }
 }

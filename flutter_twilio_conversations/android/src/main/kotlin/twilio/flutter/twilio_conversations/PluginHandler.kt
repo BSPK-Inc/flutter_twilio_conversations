@@ -60,6 +60,7 @@ class PluginHandler(private val pluginInstance: TwilioConversationsPlugin, priva
                 "Channels#getPublicChannelsList" -> ChannelsMethods.getPublicChannelsList(call, result)
                 "Channels#getUserChannelsList" -> ChannelsMethods.getUserChannelsList(call, result)
                 "Channels#createChannel" -> ChannelsMethods.createChannel(pluginInstance, call, result)
+                "Channels#createChannelWithUniqueName" -> ChannelsMethods.createChannelWithUniqueName(pluginInstance, call, result)
 
                 "Member#getUserDescriptor" -> MemberMethods.getUserDescriptor(call, result)
                 "Member#getAndSubscribeUser" -> MemberMethods.getAndSubscribeUser(call, result)

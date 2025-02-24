@@ -63,6 +63,8 @@ public class PluginHandler {
 
         case "Channels#createChannel":
             ChannelsMethods.createChannel(call, result: result)
+        case "Channels#createChannelWithUniqueName":
+            ChannelsMethods.createChannelWithUniqueName(call, result: result)
         case "Channels#getChannel":
             ChannelsMethods.getChannel(call, result: result)
         case "Channels#getUserChannelsList":
