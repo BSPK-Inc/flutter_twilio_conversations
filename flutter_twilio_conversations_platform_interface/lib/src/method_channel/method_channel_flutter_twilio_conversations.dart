@@ -53,8 +53,8 @@ class MethodChannelFlutterTwilioConversations
   Future<Map<dynamic, dynamic>> createChannelWithUniqueName(
       String uniqueName) async {
     return await _methodChannel
-        .invokeMethod('Channels#createChannel', <String, Object>{
-      'uniqueNAme': uniqueName,
+        .invokeMethod('Channels#createChannelWithUniqueName', <String, Object>{
+      'uniqueName': uniqueName,
     });
   }
 
