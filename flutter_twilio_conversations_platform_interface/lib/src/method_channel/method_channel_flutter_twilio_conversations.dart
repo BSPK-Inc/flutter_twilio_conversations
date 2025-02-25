@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 
 import 'package:flutter/services.dart';
 import 'package:meta/meta.dart';
@@ -43,6 +44,7 @@ class MethodChannelFlutterTwilioConversations
 
   Future<Map<dynamic, dynamic>> createChannel(
       String friendlyName, String channelType) async {
+    log('createChannel from flutter_twilio_conversation_platform_interface');
     return await _methodChannel.invokeMethod(
         'Channels#createChannel', <String, Object>{
       'friendlyName': friendlyName,

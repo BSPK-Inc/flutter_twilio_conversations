@@ -32,6 +32,7 @@ class Channels {
   /// This operation creates a new channel entity on the backend.
   Future<Channel> createChannel(
       String friendlyName, ChannelType channelType) async {
+    log('createChannel from flutter_twilio_conversation Channels');
     try {
       final methodData = await FlutterTwilioConversationsPlatform.instance
           .createChannel(
