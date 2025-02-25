@@ -39,8 +39,7 @@ object ChannelsMethods {
         val friendlyName = call.argument<String>("friendlyName")
             ?: return result.error("ERROR", "Missing 'friendlyName'", null)
 
-        TwilioConversationsPlugin.chatClient?.conversationBuilder()
-            .withUniqueName(friendlyName)
+        TwilioConversationsPlugin.chatClient?.conversationBuilder()?.withUniqueName(friendlyName)
             .build(object : CallbackListener<Conversation> {
                 override fun onSuccess(newChannel: Conversation) {
                     Log.d("TwilioInfo", "ChannelsMethods.createChannel => onSuccess")
