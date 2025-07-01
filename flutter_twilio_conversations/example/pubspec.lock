@@ -331,7 +331,7 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "2.0.8+18"
+    version: "2.0.9+19"
   flutter_twilio_conversations_platform_interface:
     dependency: transitive
     description:
