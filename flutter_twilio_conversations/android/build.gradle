@@ -25,6 +25,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 android {
+    namespace 'twilio.flutter.flutter_twilio_conversations'
     compileSdkVersion 33
 
     sourceSets {
