@@ -12,9 +12,8 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_twilio_conversations_platform_interface: ^2.0.8
-  flutter_twilio_conversations_web: ^2.0.8
   enum_to_string: ^2.0.1
-  intl: ^0.19.0
+  intl: ^0.20.2
 
 dev_dependencies:
   flutter_test:
@@ -30,5 +29,4 @@ flutter:
         pluginClass: TwilioConversationsPlugin
       ios:
         pluginClass: TwilioConversationsPlugin
-      web:
-        default_package: flutter_twilio_conversations_web
+      # web platform removed - implement web support separately if needed
