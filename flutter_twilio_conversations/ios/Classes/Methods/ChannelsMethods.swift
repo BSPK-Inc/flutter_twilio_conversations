@@ -12,17 +12,8 @@ public class ChannelsMethods {
             return result(FlutterError(code: "MISSING_PARAMS", message: "Missing 'friendlyName' parameter", details: nil))
         }
 
-//        guard let channelTypeString = arguments["channelType"] as? String else {
-//            return result(FlutterError(code: "MISSING_PARAMS", message: "Missing 'channelType' parameter", details: nil))
-//        }
-//
-//         guard let channelType = Mapper.stringToChannelType(channelTypeString) else {
-//             return result(FlutterError(code: "MISSING_PARAMS", message: "Could no parse 'channelType' parameter", details: nil))
-//         }
-
         let channelOptions: [String: Any] = [
-            TCHConversationOptionFriendlyName: friendlyName,
-            //TCHConversationOptionType: channelType.rawValue
+            TCHConversationOptionUniqueName: friendlyName,
         ]
 
         let flutterResult = result
