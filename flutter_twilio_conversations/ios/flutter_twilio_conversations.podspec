@@ -13,7 +13,9 @@ A new flutter plugin project.
   s.license          = { :file => '../LICENSE' }
   s.author           = { 'Your Company' => 'email@example.com' }
   s.source           = { :path => '.' }
-  s.source_files = 'Classes/**/*'
+  # Sources live in the Swift package layout so CocoaPods and Swift Package Manager
+  # build the same files. See flutter_twilio_conversations/Package.swift.
+  s.source_files = 'flutter_twilio_conversations/Sources/flutter_twilio_conversations/**/*.swift'
 
   s.dependency 'Flutter'
   s.dependency 'TwilioConversationsClient', '~> 4.0.2'
