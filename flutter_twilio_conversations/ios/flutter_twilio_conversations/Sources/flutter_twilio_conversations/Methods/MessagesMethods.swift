@@ -16,7 +16,11 @@ public class MessagesMethods {
 
         let mediaProgressListenerId = options["mediaProgressListenerId"]
 
-        SwiftTwilioConversationsPlugin.chatListener?.chatClient?.conversation(withSidOrUniqueName: channelSid, completion: { (result: TCHResult, channel: TCHConversation?) in
+        guard let chatClient = SwiftTwilioConversationsPlugin.chatListener?.chatClient else {
+            return flutterResult(FlutterError(code: "CLIENT_NOT_INITIALIZED", message: "Chat client is not initialized or has been shut down", details: nil))
+        }
+
+        chatClient.conversation(withSidOrUniqueName: channelSid, completion: { (result: TCHResult, channel: TCHConversation?) in
             if result.isSuccessful, let channel = channel {
                 SwiftTwilioConversationsPlugin.debug("MessagesMethods.sendMessage => got conversation")
                 let messagePreparator = channel.prepareMessage()
@@ -89,6 +93,13 @@ public class MessagesMethods {
                                     }
                                 })
                 }
+            } else {
+                SwiftTwilioConversationsPlugin.debug("MessagesMethods.sendMessage => onError: \(String(describing: result.error))")
+                let error = result.error as NSError?
+                flutterResult(FlutterError(
+                    code: "\(error?.code ?? 0)",
+                    message: "Error retrieving conversation (sid: \(channelSid)): \(error?.description ?? "unknown error")",
+                    details: nil))
             }
         })
     }

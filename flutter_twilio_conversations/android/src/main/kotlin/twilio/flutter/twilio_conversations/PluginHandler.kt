@@ -33,7 +33,7 @@ class PluginHandler(private val pluginInstance: TwilioConversationsPlugin, priva
                 "handleReceivedNotification" -> pluginInstance.handleReceivedNotification(call, result)
 
                 "ChatClient#updateToken" -> ChatClientMethods.updateToken(call, result)
-                "ChatClient#shutdown" -> ChatClientMethods.shutdown(call, result)
+                "ChatClient#shutdown" -> ChatClientMethods.shutdown(pluginInstance, call, result)
 
                 "User#unsubscribe" -> UserMethods.unsubscribe(call, result)
 
@@ -108,23 +108,16 @@ class PluginHandler(private val pluginInstance: TwilioConversationsPlugin, priva
         val callDeferCA = propertiesObj["deferCA"] as Boolean?
 
 
-        val currentChatClient = TwilioConversationsPlugin.chatClient
-        val currentChatClientRegion = TwilioConversationsPlugin.chatClientRegion
-        val currentChatClientDeferCA = TwilioConversationsPlugin.chatClientDeferCA
-
         try {
-            if (currentChatClient == null) {
-                Log.d("TwilioInfo", "TwilioConversationsPlugin.create => making a fresh ChatClient")
-            } else {
-                Log.w("TwilioInfo", "TwilioConversationsPlugin.create => ChatClient is already exists.")
-                if (callRegion != currentChatClientRegion) {
-                    result.error("ERROR", "ChatClient already exists with a different region", null)
-                    return
-                } else if (callDeferCA != currentChatClientDeferCA) {
-                    result.error("ERROR", "ChatClient already exists with a different deferCA", null)
-                    return
-                }
+            // Tear down any previous client before creating a new one, mirroring iOS. Reusing
+            // the existing client here would keep a connection authenticated with the previous
+            // token (e.g. a prior user's) alive; a fresh create with the new token is always
+            // correct now that the app manages the client lifecycle explicitly (BK-6201).
+            if (TwilioConversationsPlugin.chatClient != null) {
+                Log.w("TwilioInfo", "TwilioConversationsPlugin.create => ChatClient already exists, tearing it down first")
+                ChatClientMethods.tearDownClient(pluginInstance)
             }
+            Log.d("TwilioInfo", "TwilioConversationsPlugin.create => making a fresh ChatClient")
 
             val propertiesBuilder = ConversationsClient.Properties.newBuilder()
             if (callRegion != null) {
@@ -138,12 +131,6 @@ class PluginHandler(private val pluginInstance: TwilioConversationsPlugin, priva
             }
 
             pluginInstance.chatListener = ChatListener(pluginInstance, propertiesBuilder.createProperties())
-
-            if (currentChatClient != null) {
-                val chatClientMap = Mapper.chatClientToMap(pluginInstance, currentChatClient)
-                result.success(chatClientMap)
-                return
-            }
 
             ConversationsClient.create(applicationContext, token, pluginInstance.chatListener.properties, object : CallbackListener<ConversationsClient> {
                 override fun onSuccess(chatClient: ConversationsClient) {

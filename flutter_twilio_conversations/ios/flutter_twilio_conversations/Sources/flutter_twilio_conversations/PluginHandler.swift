@@ -162,6 +162,10 @@ public class PluginHandler {
 
         let flutterResult = result
 
+        // Shut down any previous client before replacing our only strong reference to it.
+        // Overwriting the reference while its twilsock transport was still live is what
+        // freed clients mid-flight and crashed in TwilioTwilsockLib (BK-6201).
+        ChatClientMethods.tearDownClient()
         SwiftTwilioConversationsPlugin.chatListener = ChatListener(token, properties)
 
         TwilioConversationsClient.conversationsClient(withToken: token, properties: properties, delegate: SwiftTwilioConversationsPlugin.chatListener, completion: {(result: TCHResult, chatClient: TwilioConversationsClient?) -> Void in
@@ -171,6 +175,11 @@ public class PluginHandler {
                 flutterResult(Mapper.chatClientToDict(chatClient))
             } else {
                 SwiftTwilioConversationsPlugin.debug("TwilioConversationsPlugin.create => ChatClient.create onError: \(String(describing: result.error))")
+                let error = result.error as NSError?
+                flutterResult(FlutterError(
+                    code: "\(error?.code ?? 0)",
+                    message: "Failed to create client: \(error?.description ?? "unknown error")",
+                    details: nil))
             }
             } as TCHTwilioClientCompletion)
     }

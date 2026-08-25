@@ -27,7 +27,24 @@ public class ChatClientMethods {
     }
 
     public static func shutdown(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        SwiftTwilioConversationsPlugin.chatListener?.chatClient?.shutdown()
+        tearDownClient()
         result(nil)
+    }
+
+    /// Shuts down the current client (if any) and clears every plugin-level reference to it.
+    /// The SDK's shutdown must run while our references are still in place: dropping the last
+    /// strong reference to a client with a live twilsock transport is what caused the
+    /// use-after-free crashes in TwilioTwilsockLib (BK-6201).
+    public static func tearDownClient() {
+        SwiftTwilioConversationsPlugin.debug("ChatClientMethods.tearDownClient => shutting down client")
+        SwiftTwilioConversationsPlugin.chatListener?.chatClient?.shutdown()
+        SwiftTwilioConversationsPlugin.chatListener?.chatClient = nil
+        SwiftTwilioConversationsPlugin.chatListener = nil
+
+        for (_, eventChannel) in SwiftTwilioConversationsPlugin.channelChannels {
+            eventChannel.setStreamHandler(nil)
+        }
+        SwiftTwilioConversationsPlugin.channelChannels.removeAll()
+        SwiftTwilioConversationsPlugin.channelListeners.removeAll()
     }
 }

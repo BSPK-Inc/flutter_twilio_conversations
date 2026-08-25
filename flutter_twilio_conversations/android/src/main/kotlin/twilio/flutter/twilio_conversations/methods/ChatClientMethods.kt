@@ -25,16 +25,27 @@ object ChatClientMethods {
         })
     }
 
-    fun shutdown(call: MethodCall, result: MethodChannel.Result) {
+    fun shutdown(pluginInstance: TwilioConversationsPlugin, call: MethodCall, result: MethodChannel.Result) {
         return try {
-            TwilioConversationsPlugin.chatClient?.shutdown()
-            TwilioConversationsPlugin.chatClient = null
-            TwilioConversationsPlugin.chatClientRegion = null
-            TwilioConversationsPlugin.chatClientDeferCA = null
-
+            tearDownClient(pluginInstance)
             result.success(null)
         } catch (err: Exception) {
             result.error("ERROR", err.message, null)
         }
+    }
+
+    // Shuts down the current client (if any) and clears every plugin-level reference to it,
+    // mirroring the iOS teardown so both platforms behave the same once the app starts
+    // calling ChatClient#shutdown (BK-6201).
+    fun tearDownClient(pluginInstance: TwilioConversationsPlugin) {
+        Log.d("TwilioInfo", "ChatClientMethods.tearDownClient => shutting down client")
+        TwilioConversationsPlugin.chatClient?.shutdown()
+        TwilioConversationsPlugin.chatClient = null
+        TwilioConversationsPlugin.chatClientRegion = null
+        TwilioConversationsPlugin.chatClientDeferCA = null
+
+        pluginInstance.channelChannels.values.forEach { it.setStreamHandler(null) }
+        pluginInstance.channelChannels.clear()
+        pluginInstance.channelListeners.clear()
     }
 }
