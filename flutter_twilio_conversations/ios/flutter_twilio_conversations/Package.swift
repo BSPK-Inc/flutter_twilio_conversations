@@ -17,8 +17,9 @@ let package = Package(
         // races (BK-6201: SIGABRT/EXC_BAD_ACCESS in TwilioTwilsockLib). A range rather than an
         // exact pin so downstream graphs stay resolvable; consumers pin exact versions in their
         // committed Package.resolved. Twilsock comes in transitively (4.0.9 requires
-        // .upToNextMajor(from: "3.0.2")). The CocoaPods path (see the podspec) is frozen at 4.0.2
-        // and does not carry these fixes — SwiftPM is the supported build path.
+        // .upToNextMajor(from: "3.0.2")). SwiftPM is the only iOS build path: the CocoaPods
+        // podspec was removed because Twilio stopped publishing after 4.0.2, so a pods build
+        // could only ever produce the crashing SDK.
         .package(url: "https://github.com/twilio/conversations-ios", .upToNextMinor(from: "4.0.9")),
     ],
     targets: [

@@ -12,7 +12,7 @@ Fixes the native Twilsock transport crashes (SIGABRT / EXC_BAD_ACCESS) tracked a
 * `create` and `Messages#sendMessage` report failures via the method-channel result instead of silently hanging the Dart `await`; `sendMessage` fails fast with `CLIENT_NOT_INITIALIZED` when no client exists.
 * `sendMessage` media fixes: media without a filename no longer hangs (falls back to `image.jpeg`), the provided filename is honored, the media input stream is no longer force-unwrapped, and media now attaches to the same message as body/attributes.
 * `updateToken` resolves the Dart `await` even when the SDK reports failure without an error object.
-* **Note:** the CocoaPods path is frozen at Twilio SDK 4.0.2 (Twilio no longer publishes to CocoaPods) and does not carry these fixes. SwiftPM (stable Flutter 3.44+, which introduced the generated FlutterFramework package this plugin depends on) is the supported iOS build path; the Flutter constraint was raised accordingly.
+* **Breaking:** the CocoaPods podspec was removed — Twilio stopped publishing to CocoaPods after SDK 4.0.2, so a pods build could only ever ship the SDK without these crash fixes. SwiftPM (stable Flutter 3.44+, which introduced the generated FlutterFramework package this plugin depends on) is the only iOS build path; building with SwiftPM disabled now fails at pod install time instead of silently downgrading. The Flutter constraint was raised accordingly.
 
 ### Android
 * `ChatClient#shutdown` / `create` teardown parity with iOS.
