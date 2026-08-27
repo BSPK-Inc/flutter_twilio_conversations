@@ -3,9 +3,31 @@ import Foundation
 import TwilioConversationsClient
 
 public class PluginHandler {
+    /// Methods that are valid without a live client. Everything else dereferences
+    /// `chatListener?.chatClient` and calls its FlutterResult only from inside an SDK
+    /// completion — with a nil client the SDK is never invoked and the Dart `await`
+    /// would hang forever, so those methods are rejected up front instead.
+    private static let methodsNotRequiringClient: Set<String> = [
+        "debug",
+        "create",
+        "ChatClient#shutdown",
+        "registerForNotification",
+        "unregisterForNotification",
+        "handleReceivedNotification"
+    ]
+
     // swiftlint:disable:next function_body_length
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         SwiftTwilioConversationsPlugin.debug("PluginHandler.handle => received \(call.method)")
+
+        if !PluginHandler.methodsNotRequiringClient.contains(call.method),
+            SwiftTwilioConversationsPlugin.chatListener?.chatClient == nil {
+            return result(FlutterError(
+                code: "CLIENT_NOT_INITIALIZED",
+                message: "Chat client is not initialized or has been shut down",
+                details: nil))
+        }
+
         switch call.method {
         case "debug":
             debug(call, result: result)
@@ -175,8 +197,8 @@ public class PluginHandler {
         SwiftTwilioConversationsPlugin.chatListener = ChatListener(token, properties)
 
         TwilioConversationsClient.conversationsClient(withToken: token, properties: properties, delegate: SwiftTwilioConversationsPlugin.chatListener, completion: {(result: TCHResult, chatClient: TwilioConversationsClient?) -> Void in
-            if result.isSuccessful {
-                SwiftTwilioConversationsPlugin.debug("TwilioConversationsPlugin.create => ChatClient.create onSuccess: myIdentity is '\(chatClient?.user?.identity ?? "unknown")'")
+            if result.isSuccessful, let chatClient = chatClient {
+                SwiftTwilioConversationsPlugin.debug("TwilioConversationsPlugin.create => ChatClient.create onSuccess: myIdentity is '\(chatClient.user?.identity ?? "unknown")'")
                 SwiftTwilioConversationsPlugin.chatListener?.chatClient = chatClient
                 flutterResult(Mapper.chatClientToDict(chatClient))
             } else {

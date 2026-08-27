@@ -22,9 +22,27 @@ import twilio.flutter.twilio_conversations.methods.UserMethods
 import twilio.flutter.twilio_conversations.methods.UsersMethods
 
 class PluginHandler(private val pluginInstance: TwilioConversationsPlugin, private val applicationContext: Context) : MethodCallHandler {
+    companion object {
+        // Methods that are valid without a live client. Everything else dereferences
+        // TwilioConversationsPlugin.chatClient and calls its Result only from inside an
+        // SDK callback — with a null client the SDK is never invoked and the Dart await
+        // would hang forever, so those methods are rejected up front instead.
+        private val methodsNotRequiringClient = setOf(
+            "debug",
+            "create",
+            "ChatClient#shutdown",
+            "registerForNotification",
+            "unregisterForNotification",
+            "handleReceivedNotification"
+        )
+    }
+
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         Log.d("TwilioInfo", "TwilioConversationsPlugin.onMethodCall => received ${call.method}")
         if (call.method != "cancel" && call.method != "listen") {
+            if (call.method !in methodsNotRequiringClient && TwilioConversationsPlugin.chatClient == null) {
+                return result.error("CLIENT_NOT_INITIALIZED", "Chat client is not initialized or has been shut down", null)
+            }
             when (call.method) {
                 "debug" -> debug(call, result)
                 "create" -> create(call, result)

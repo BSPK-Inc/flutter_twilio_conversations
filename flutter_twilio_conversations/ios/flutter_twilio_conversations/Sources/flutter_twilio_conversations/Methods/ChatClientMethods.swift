@@ -18,10 +18,14 @@ public class ChatClientMethods {
                 SwiftTwilioConversationsPlugin.debug("ChatClientMethods.updateToken => onSuccess")
                 flutterResult(nil)
             } else {
-                if let error = result.error as NSError? {
-                    SwiftTwilioConversationsPlugin.debug("ChatClientMethods.updateToken => onError: \(error)")
-                    flutterResult(FlutterError(code: "\(error.code)", message: "\(error.description)", details: nil))
-                }
+                // Always resolve the Dart await, even when the SDK reports failure
+                // without an error object.
+                let error = result.error as NSError?
+                SwiftTwilioConversationsPlugin.debug("ChatClientMethods.updateToken => onError: \(String(describing: error))")
+                flutterResult(FlutterError(
+                    code: "\(error?.code ?? 0)",
+                    message: "Failed to update token: \(error?.description ?? "unknown error")",
+                    details: nil))
             }
             } as TCHCompletion)
     }
