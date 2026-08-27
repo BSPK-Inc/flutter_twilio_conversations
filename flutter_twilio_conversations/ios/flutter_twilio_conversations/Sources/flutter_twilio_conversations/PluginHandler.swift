@@ -165,6 +165,12 @@ public class PluginHandler {
         // Shut down any previous client before replacing our only strong reference to it.
         // Overwriting the reference while its twilsock transport was still live is what
         // freed clients mid-flight and crashed in TwilioTwilsockLib (BK-6201).
+        //
+        // Contract: Dart must call ChatClient.shutdown() before create() — this teardown is
+        // a native safety net only; Dart-side Channel caches are cleared exclusively by
+        // shutdown(), and channels that survive a bare create() silently stop receiving
+        // events. Note this also means a failed create() leaves NO client (the old one is
+        // gone): callers must retry create(), not fall back to the previous client.
         ChatClientMethods.tearDownClient()
         SwiftTwilioConversationsPlugin.chatListener = ChatListener(token, properties)
 

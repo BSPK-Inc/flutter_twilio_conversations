@@ -31,10 +31,17 @@ public class ChatClientMethods {
         result(nil)
     }
 
-    /// Shuts down the current client (if any) and clears every plugin-level reference to it.
-    /// The SDK's shutdown must run while our references are still in place: dropping the last
-    /// strong reference to a client with a live twilsock transport is what caused the
-    /// use-after-free crashes in TwilioTwilsockLib (BK-6201).
+    /// Shuts down the current client (if any) and then clears every plugin-level reference to
+    /// it, so later method calls fail fast instead of dereferencing a dead client. Requesting
+    /// shutdown() before dropping our references gives the SDK an orderly teardown, but the
+    /// transport teardown continues asynchronously on the SDK's own queues — protection against
+    /// the over-release inside shutdownTransport() (twilio/conversations-ios#54, BK-6201) comes
+    /// from the SDK bump to 4.0.9, not from this ordering.
+    ///
+    /// Note for Dart-side callers: the plugin's Dart layer caches Channel objects statically and
+    /// only clears them in ChatClient.shutdown(). Always call shutdown() before create() —
+    /// create() tears down any leftover native client as a safety net, but Dart channels that
+    /// survive it will have dead native stream handlers and silently stop receiving events.
     public static func tearDownClient() {
         SwiftTwilioConversationsPlugin.debug("ChatClientMethods.tearDownClient => shutting down client")
         SwiftTwilioConversationsPlugin.chatListener?.chatClient?.shutdown()

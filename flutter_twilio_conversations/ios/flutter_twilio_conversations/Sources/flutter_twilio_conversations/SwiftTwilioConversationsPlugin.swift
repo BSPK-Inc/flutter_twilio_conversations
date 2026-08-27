@@ -216,7 +216,11 @@ public class SwiftTwilioConversationsPlugin: NSObject, FlutterPlugin {
 
     class ChatStreamHandler: NSObject, FlutterStreamHandler {
         func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
-            guard let chatListener = SwiftTwilioConversationsPlugin.chatListener else { return nil }
+            guard let chatListener = SwiftTwilioConversationsPlugin.chatListener else {
+                SwiftTwilioConversationsPlugin.debug(
+                    "ChatStreamHandler.onListen => no chatListener (client shut down or not created); client events will not be delivered until create() runs")
+                return nil
+            }
             SwiftTwilioConversationsPlugin.debug("ChatStreamHandler.onListen => Chat eventChannel attached")
             chatListener.events = events
             chatListener.chatClient?.delegate = chatListener

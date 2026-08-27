@@ -36,13 +36,14 @@ object ChatClientMethods {
 
     // Shuts down the current client (if any) and clears every plugin-level reference to it,
     // mirroring the iOS teardown so both platforms behave the same once the app starts
-    // calling ChatClient#shutdown (BK-6201).
+    // calling ChatClient#shutdown (BK-6201). See the iOS tearDownClient doc for the
+    // shutdown-before-create contract expected of Dart callers.
     fun tearDownClient(pluginInstance: TwilioConversationsPlugin) {
         Log.d("TwilioInfo", "ChatClientMethods.tearDownClient => shutting down client")
+        TwilioConversationsPlugin.chatClient?.removeAllListeners()
         TwilioConversationsPlugin.chatClient?.shutdown()
         TwilioConversationsPlugin.chatClient = null
-        TwilioConversationsPlugin.chatClientRegion = null
-        TwilioConversationsPlugin.chatClientDeferCA = null
+        pluginInstance.chatListener = null
 
         pluginInstance.channelChannels.values.forEach { it.setStreamHandler(null) }
         pluginInstance.channelChannels.clear()

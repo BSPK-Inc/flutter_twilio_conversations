@@ -18,10 +18,11 @@ A new flutter plugin project.
   s.source_files = 'flutter_twilio_conversations/Sources/flutter_twilio_conversations/**/*.swift'
 
   s.dependency 'Flutter'
-  # CocoaPods is a legacy path: TwilioTwilsockLib 3.x (required by TwilioConversationsClient
-  # 4.0.5+) is not published to CocoaPods, so 4.0.4 is the newest pods-buildable version.
-  # SwiftPM (flutter_twilio_conversations/Package.swift) is the supported build path and pins 4.0.9.
-  s.dependency 'TwilioConversationsClient', '~> 4.0.4'
+  # The CocoaPods path is frozen: Twilio stopped publishing to CocoaPods after
+  # TwilioConversationsClient 4.0.2, so this build does NOT carry the BK-6201
+  # Twilsock crash fixes (4.0.3-4.0.9). SwiftPM
+  # (flutter_twilio_conversations/Package.swift) is the supported build path.
+  s.dependency 'TwilioConversationsClient', '4.0.2'
 
   s.platform = :ios, '13.0'
 

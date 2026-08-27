@@ -14,12 +14,12 @@ let package = Package(
     dependencies: [
         .package(name: "FlutterFramework", path: "../FlutterFramework"),
         // 4.0.3–4.0.9 fix shutdown crashes, transport race conditions, and updateToken-vs-shutdown
-        // races (BK-6201: SIGABRT/EXC_BAD_ACCESS in TwilioTwilsockLib). Keep both pins moving
-        // together: conversations-ios 4.0.9 requires twilsock .upToNextMajor(from: "3.0.2").
-        // twilsock 3.x is not published to CocoaPods, so the podspec cannot track these versions —
-        // SwiftPM is the supported build path.
-        .package(url: "https://github.com/twilio/conversations-ios", exact: "4.0.9"),
-        .package(url: "https://github.com/twilio/twilsock-ios", exact: "3.0.2"),
+        // races (BK-6201: SIGABRT/EXC_BAD_ACCESS in TwilioTwilsockLib). A range rather than an
+        // exact pin so downstream graphs stay resolvable; consumers pin exact versions in their
+        // committed Package.resolved. Twilsock comes in transitively (4.0.9 requires
+        // .upToNextMajor(from: "3.0.2")). The CocoaPods path (see the podspec) is frozen at 4.0.2
+        // and does not carry these fixes — SwiftPM is the supported build path.
+        .package(url: "https://github.com/twilio/conversations-ios", .upToNextMinor(from: "4.0.9")),
     ],
     targets: [
         .target(
@@ -27,9 +27,6 @@ let package = Package(
             dependencies: [
                 .product(name: "FlutterFramework", package: "FlutterFramework"),
                 .product(name: "TwilioConversationsClient", package: "conversations-ios"),
-                // Linked transitively via TwilioConversationsClient; named explicitly so the
-                // version pin above applies to a product this target actually uses.
-                .product(name: "TwilioTwilsockLib", package: "twilsock-ios"),
             ]
         )
     ]

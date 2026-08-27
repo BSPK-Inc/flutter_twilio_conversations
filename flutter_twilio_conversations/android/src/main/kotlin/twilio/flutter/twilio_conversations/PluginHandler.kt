@@ -130,15 +130,14 @@ class PluginHandler(private val pluginInstance: TwilioConversationsPlugin, priva
                 propertiesBuilder.setDeferCertificateTrustToPlatform(callDeferCA)
             }
 
-            pluginInstance.chatListener = ChatListener(pluginInstance, propertiesBuilder.createProperties())
+            val chatListener = ChatListener(pluginInstance, propertiesBuilder.createProperties())
+            pluginInstance.chatListener = chatListener
 
-            ConversationsClient.create(applicationContext, token, pluginInstance.chatListener.properties, object : CallbackListener<ConversationsClient> {
+            ConversationsClient.create(applicationContext, token, chatListener.properties, object : CallbackListener<ConversationsClient> {
                 override fun onSuccess(chatClient: ConversationsClient) {
                     Log.d("Twilio init success", "TwilioConversationsPlugin.create => ChatClient.create onSuccess: myIdentity is '${chatClient.myIdentity}'")
                     try {
                         TwilioConversationsPlugin.chatClient = chatClient
-                        TwilioConversationsPlugin.chatClientRegion = callRegion
-                        TwilioConversationsPlugin.chatClientDeferCA = callDeferCA
 
                         val chatClientMap = Mapper.chatClientToMap(pluginInstance, chatClient)
                         result.success(chatClientMap)

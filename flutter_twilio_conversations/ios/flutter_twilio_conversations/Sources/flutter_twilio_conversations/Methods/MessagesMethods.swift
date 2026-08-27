@@ -35,17 +35,13 @@ public class MessagesMethods {
                     messagePreparator.setAttributes(attributes, error: nil)
                 }
                 
-                if (options["input"] != nil && options["mimeType"] as? String != nil) {
-                    let input = options["input"] as? String
-                    
-                    guard (options["mimeType"] as? String) != nil else {
-                        return flutterResult(FlutterError(code: "ERROR", message: "Missing 'mimeType' in MessageOptions", details: nil))
+                if let input = options["input"] as? String, let mimeType = options["mimeType"] as? String {
+                    guard let inputStream = InputStream(fileAtPath: input) else {
+                        return flutterResult(FlutterError(code: "ERROR", message: "Could not open media file at path `\(input)`", details: nil))
                     }
-                    
-                    let inputStream = InputStream(fileAtPath: input!)
-                    
-                    if (options["filename"] != nil) {                        
-                        channel.prepareMessage().addMedia(inputStream: inputStream!, contentType: options["mimeType"] as! String, filename: "image.jpeg", listener: .init(
+
+                    let filename = options["filename"] as? String ?? "image.jpeg"
+                    messagePreparator.addMedia(inputStream: inputStream, contentType: mimeType, filename: filename, listener: .init(
                             onStarted: {
                                 SwiftTwilioConversationsPlugin.debug("MessagesMethods.sendMessage (Message.addMedia) => onStarted")
                                 if let id = mediaProgressListenerId, let sink = SwiftTwilioConversationsPlugin.mediaProgressSink {
@@ -80,7 +76,6 @@ public class MessagesMethods {
                                 flutterResult(FlutterError(code: "ERROR", message: "Error sending message with options `\(String(describing: messagePreparator))`", details: nil))
                             }
                         })
-                    }
                 } else {
                     messagePreparator.buildAndSend(completion: {
                                     (result: TCHResult, message: TCHMessage?) in

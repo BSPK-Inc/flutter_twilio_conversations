@@ -22,8 +22,6 @@ class TwilioConversationsPlugin : FlutterPlugin {
 
         // One Twilio conversation client and each Flutter engine will have it's own listener
         var chatClient: ConversationsClient? = null
-        var chatClientRegion: String? = null
-        var chatClientDeferCA: Boolean? = null
     }
 
     private lateinit var methodChannel: MethodChannel
@@ -38,7 +36,8 @@ class TwilioConversationsPlugin : FlutterPlugin {
 
     lateinit var messenger: BinaryMessenger
 
-    lateinit var chatListener: ChatListener
+    // Null when no client exists (before the first create() or after tearDownClient()).
+    var chatListener: ChatListener? = null
 
     var mediaProgressSink: EventChannel.EventSink? = null
 
@@ -76,14 +75,19 @@ class TwilioConversationsPlugin : FlutterPlugin {
         chatChannel = EventChannel(messenger, "flutter_twilio_conversations/room")
         chatChannel.setStreamHandler(object : EventChannel.StreamHandler {
             override fun onListen(arguments: Any?, events: EventChannel.EventSink) {
+                val listener = chatListener
+                if (listener == null) {
+                    debug("TwilioConversationsPlugin.onAttachedToEngine => Chat eventChannel attached with no chatListener (client shut down or not created); client events will not be delivered until create() runs")
+                    return
+                }
                 debug("TwilioConversationsPlugin.onAttachedToEngine => Chat eventChannel attached")
-                chatListener.events = events
-                chatClient?.addListener(chatListener)
+                listener.events = events
+                chatClient?.addListener(listener)
             }
 
             override fun onCancel(arguments: Any?) {
                 debug("TwilioConversationsPlugin.onAttachedToEngine => Chat eventChannel detached")
-                chatListener.events = null
+                chatListener?.events = null
             }
         })
 
