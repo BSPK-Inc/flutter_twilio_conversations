@@ -3,7 +3,8 @@
 Fixes the native Twilsock transport crashes (SIGABRT / EXC_BAD_ACCESS) tracked as BK-6201.
 
 ### Both platforms
-* Every method that requires a live client now fails fast with `CLIENT_NOT_INITIALIZED` when the client is missing or shut down, instead of never resolving the Dart `await` (the method-channel result was previously only delivered from inside SDK callbacks that a null client never reached).
+* Every method that requires a live client now fails fast with `CLIENT_NOT_INITIALIZED` when the client is missing or shut down, instead of never resolving the Dart `await` (the method-channel result was previously only delivered from inside SDK callbacks that a null client never reached). Unknown method names still report `notImplemented`.
+* The notification handlers (`registerForNotification` / `unregisterForNotification` / iOS `handleReceivedNotification`), which legitimately do some work without a client, also resolve with `CLIENT_NOT_INITIALIZED` at the point where they need one instead of hanging. iOS `unregisterForNotification` no longer resolves its result twice.
 
 ### iOS
 * Updated Twilio Conversations iOS SDK from 4.0.2 to [4.0.9](https://www.twilio.com/docs/conversations/ios/changelog) (SwiftPM only): upstream fixed shutdown crashes, transport race conditions, and the `updateToken`-vs-`shutdown` race in 4.0.3–4.0.9.

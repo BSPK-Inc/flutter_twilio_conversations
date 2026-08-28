@@ -146,7 +146,12 @@ class TwilioConversationsPlugin : FlutterPlugin {
         val token: String = call.argument<String>("token")
                 ?: return result.error("MISSING_PARAMS", "The parameter 'token' was not given", null)
 
-        chatClient?.registerFCMToken(ConversationsClient.FCMToken(token), object : StatusListener {
+        // Resolve instead of hanging the Dart await: with a null client the SDK callback
+        // below would never run and the result would never be delivered.
+        val chatClient = chatClient
+                ?: return result.error("CLIENT_NOT_INITIALIZED", "Chat client is not initialized or has been shut down", null)
+
+        chatClient.registerFCMToken(ConversationsClient.FCMToken(token), object : StatusListener {
             override fun onSuccess() {
                 try {
                     debug("TwilioConversationsPlugin.registerForNotification => registered with FCM $token")
@@ -174,7 +179,12 @@ class TwilioConversationsPlugin : FlutterPlugin {
         val token: String = call.argument<String>("token")
                 ?: return result.error("MISSING_PARAMS", "The parameter 'token' was not given", null)
 
-        chatClient?.unregisterFCMToken(ConversationsClient.FCMToken(token), object : StatusListener {
+        // Resolve instead of hanging the Dart await: with a null client the SDK callback
+        // below would never run and the result would never be delivered.
+        val chatClient = chatClient
+                ?: return result.error("CLIENT_NOT_INITIALIZED", "Chat client is not initialized or has been shut down", null)
+
+        chatClient.unregisterFCMToken(ConversationsClient.FCMToken(token), object : StatusListener {
             override fun onSuccess() {
                 try {
                     debug("TwilioConversationsPlugin.unregisterForNotification => unregistered with FCM $token")

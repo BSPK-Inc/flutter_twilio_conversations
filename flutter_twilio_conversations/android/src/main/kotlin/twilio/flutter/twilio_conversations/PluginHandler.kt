@@ -23,24 +23,67 @@ import twilio.flutter.twilio_conversations.methods.UsersMethods
 
 class PluginHandler(private val pluginInstance: TwilioConversationsPlugin, private val applicationContext: Context) : MethodCallHandler {
     companion object {
-        // Methods that are valid without a live client. Everything else dereferences
-        // TwilioConversationsPlugin.chatClient and calls its Result only from inside an
-        // SDK callback — with a null client the SDK is never invoked and the Dart await
-        // would hang forever, so those methods are rejected up front instead.
-        private val methodsNotRequiringClient = setOf(
-            "debug",
-            "create",
-            "ChatClient#shutdown",
-            "registerForNotification",
-            "unregisterForNotification",
-            "handleReceivedNotification"
+        // Every method in the `when` below that dereferences TwilioConversationsPlugin.chatClient
+        // and delivers its Result only from inside an SDK callback — with a null client the SDK
+        // is never invoked and the Dart await would hang forever, so these are rejected up front
+        // with CLIENT_NOT_INITIALIZED instead. Keyed on client-requiring names (rather than
+        // exempting the few that work without a client) so that unknown method names still fall
+        // through the `when` to notImplemented.
+        //
+        // MUST stay in sync with the `when` below: a client-requiring branch missing from this
+        // set reverts to the old hang-on-null-client behavior.
+        private val clientRequiringMethods = setOf(
+            "ChatClient#updateToken",
+            "User#unsubscribe",
+            "Users#getChannelUserDescriptors",
+            "Users#getUserDescriptor",
+            "Users#getAndSubscribeUser",
+            "Channel#join",
+            "Channel#leave",
+            "Channel#typing",
+            "Channel#destroy",
+            "Channel#getMessagesCount",
+            "Channel#getUnreadMessagesCount",
+            "Channel#getMembersCount",
+            "Channel#setAttributes",
+            "Channel#getFriendlyName",
+            "Channel#setFriendlyName",
+            "Channel#getNotificationLevel",
+            "Channel#setNotificationLevel",
+            "Channel#getUniqueName",
+            "Channel#setUniqueName",
+            "Channels#getChannel",
+            "Channels#getPublicChannelsList",
+            "Channels#getUserChannelsList",
+            "Channels#createChannel",
+            "Member#getUserDescriptor",
+            "Member#getAndSubscribeUser",
+            "Member#setAttributes",
+            "Members#getMembersList",
+            "Members#getMember",
+            "Members#addByIdentity",
+            "Members#inviteByIdentity",
+            "Members#removeByIdentity",
+            "Message#updateMessageBody",
+            "Message#setAttributes",
+            "Message#getMedia",
+            "Messages#sendMessage",
+            "Messages#removeMessage",
+            "Messages#getMessagesBefore",
+            "Messages#getMessagesAfter",
+            "Messages#getLastMessages",
+            "Messages#getMessageByIndex",
+            "Messages#setLastReadMessageIndexWithResult",
+            "Messages#advanceLastReadMessageIndexWithResult",
+            "Messages#setAllMessagesReadWithResult",
+            "Messages#setNoMessagesReadWithResult"
         )
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         Log.d("TwilioInfo", "TwilioConversationsPlugin.onMethodCall => received ${call.method}")
         if (call.method != "cancel" && call.method != "listen") {
-            if (call.method !in methodsNotRequiringClient && TwilioConversationsPlugin.chatClient == null) {
+            if (call.method in clientRequiringMethods && TwilioConversationsPlugin.chatClient == null) {
                 return result.error("CLIENT_NOT_INITIALIZED", "Chat client is not initialized or has been shut down", null)
             }
             when (call.method) {

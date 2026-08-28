@@ -3,24 +3,67 @@ import Foundation
 import TwilioConversationsClient
 
 public class PluginHandler {
-    /// Methods that are valid without a live client. Everything else dereferences
-    /// `chatListener?.chatClient` and calls its FlutterResult only from inside an SDK
-    /// completion — with a nil client the SDK is never invoked and the Dart `await`
-    /// would hang forever, so those methods are rejected up front instead.
-    private static let methodsNotRequiringClient: Set<String> = [
-        "debug",
-        "create",
-        "ChatClient#shutdown",
-        "registerForNotification",
-        "unregisterForNotification",
-        "handleReceivedNotification"
+    /// Every method in the switch below that dereferences `chatListener?.chatClient` and
+    /// delivers its FlutterResult only from inside an SDK completion — with a nil client the
+    /// SDK is never invoked and the Dart `await` would hang forever, so these are rejected
+    /// up front with CLIENT_NOT_INITIALIZED instead. Keyed on client-requiring names (rather
+    /// than exempting the few that work without a client) so that unknown method names still
+    /// fall through the switch to FlutterMethodNotImplemented.
+    ///
+    /// MUST stay in sync with the switch below: a client-requiring case missing from this
+    /// set reverts to the old hang-on-nil-client behavior.
+    private static let clientRequiringMethods: Set<String> = [
+        "ChatClient#updateToken",
+        "User#unsubscribe",
+        "Users#getChannelUserDescriptors",
+        "Users#getUserDescriptor",
+        "Users#getAndSubscribeUser",
+        "Channel#join",
+        "Channel#leave",
+        "Channel#typing",
+        "Channel#destroy",
+        "Channel#getMessagesCount",
+        "Channel#getUnreadMessagesCount",
+        "Channel#getMembersCount",
+        "Channel#setAttributes",
+        "Channel#getFriendlyName",
+        "Channel#setFriendlyName",
+        "Channel#getNotificationLevel",
+        "Channel#setNotificationLevel",
+        "Channel#getUniqueName",
+        "Channel#setUniqueName",
+        "Channels#createChannel",
+        "Channels#getChannel",
+        "Channels#getUserChannelsList",
+        "Channels#getMembersByIdentity",
+        "Member#getUserDescriptor",
+        "Member#getAndSubscribeUser",
+        "Member#setAttributes",
+        "Members#getMembersList",
+        "Members#getMember",
+        "Members#addByIdentity",
+        "Members#inviteByIdentity",
+        "Members#removeByIdentity",
+        "Message#updateMessageBody",
+        "Message#setAttributes",
+        "Message#getMedia",
+        "Messages#sendMessage",
+        "Messages#removeMessage",
+        "Messages#getMessagesBefore",
+        "Messages#getMessagesAfter",
+        "Messages#getLastMessages",
+        "Messages#getMessageByIndex",
+        "Messages#setLastReadMessageIndexWithResult",
+        "Messages#advanceLastReadMessageIndexWithResult",
+        "Messages#setAllMessagesReadWithResult",
+        "Messages#setNoMessagesReadWithResult"
     ]
 
     // swiftlint:disable:next function_body_length
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         SwiftTwilioConversationsPlugin.debug("PluginHandler.handle => received \(call.method)")
 
-        if !PluginHandler.methodsNotRequiringClient.contains(call.method),
+        if PluginHandler.clientRequiringMethods.contains(call.method),
             SwiftTwilioConversationsPlugin.chatListener?.chatClient == nil {
             return result(FlutterError(
                 code: "CLIENT_NOT_INITIALIZED",
