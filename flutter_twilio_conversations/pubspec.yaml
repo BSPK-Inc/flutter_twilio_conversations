@@ -1,12 +1,19 @@
 name: flutter_twilio_conversations
 description: Integrate the Twilio Conversations SDK with your Flutter app using this Twilio Conversations Flutter plugin
-version: 2.0.9+19
+version: 2.1.0+20
 repository: https://github.com/Diversido/flutter_twilio_conversations
 issue_tracker: https://github.com/Diversido/flutter_twilio_conversations/issues
 
 environment:
-  sdk: ">=2.14.0 <4.0.0"
-  flutter: ">=1.17.0"
+  sdk: ">=3.0.0 <4.0.0"
+  # iOS requires the SwiftPM plugin build path with the generated FlutterFramework
+  # package, which first shipped in stable Flutter 3.44.0. There is no CocoaPods
+  # fallback: the podspec was removed because Twilio stopped publishing to
+  # CocoaPods after SDK 4.0.2, which lacks the BK-6201 Twilsock crash fixes —
+  # a pods build could only ever ship the crashing SDK. Building with SwiftPM
+  # disabled fails at pod install time (no podspec) instead of silently
+  # downgrading.
+  flutter: ">=3.44.0"
 
 dependencies:
   flutter:

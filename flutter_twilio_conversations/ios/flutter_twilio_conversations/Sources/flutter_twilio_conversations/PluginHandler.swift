@@ -3,9 +3,74 @@ import Foundation
 import TwilioConversationsClient
 
 public class PluginHandler {
+    /// Every method in the switch below that dereferences `chatListener?.chatClient` and
+    /// delivers its FlutterResult only from inside an SDK completion — with a nil client the
+    /// SDK is never invoked and the Dart `await` would hang forever, so these are rejected
+    /// up front with CLIENT_NOT_INITIALIZED instead. Keyed on client-requiring names (rather
+    /// than exempting the few that work without a client) so that unknown method names still
+    /// fall through the switch to FlutterMethodNotImplemented.
+    ///
+    /// MUST stay in sync with the switch below: a client-requiring case missing from this
+    /// set reverts to the old hang-on-nil-client behavior.
+    private static let clientRequiringMethods: Set<String> = [
+        "ChatClient#updateToken",
+        "User#unsubscribe",
+        "Users#getChannelUserDescriptors",
+        "Users#getUserDescriptor",
+        "Users#getAndSubscribeUser",
+        "Channel#join",
+        "Channel#leave",
+        "Channel#typing",
+        "Channel#destroy",
+        "Channel#getMessagesCount",
+        "Channel#getUnreadMessagesCount",
+        "Channel#getMembersCount",
+        "Channel#setAttributes",
+        "Channel#getFriendlyName",
+        "Channel#setFriendlyName",
+        "Channel#getNotificationLevel",
+        "Channel#setNotificationLevel",
+        "Channel#getUniqueName",
+        "Channel#setUniqueName",
+        "Channels#createChannel",
+        "Channels#getChannel",
+        "Channels#getUserChannelsList",
+        "Channels#getMembersByIdentity",
+        "Member#getUserDescriptor",
+        "Member#getAndSubscribeUser",
+        "Member#setAttributes",
+        "Members#getMembersList",
+        "Members#getMember",
+        "Members#addByIdentity",
+        "Members#inviteByIdentity",
+        "Members#removeByIdentity",
+        "Message#updateMessageBody",
+        "Message#setAttributes",
+        "Message#getMedia",
+        "Messages#sendMessage",
+        "Messages#removeMessage",
+        "Messages#getMessagesBefore",
+        "Messages#getMessagesAfter",
+        "Messages#getLastMessages",
+        "Messages#getMessageByIndex",
+        "Messages#setLastReadMessageIndexWithResult",
+        "Messages#advanceLastReadMessageIndexWithResult",
+        "Messages#setAllMessagesReadWithResult",
+        "Messages#setNoMessagesReadWithResult"
+    ]
+
     // swiftlint:disable:next function_body_length
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         SwiftTwilioConversationsPlugin.debug("PluginHandler.handle => received \(call.method)")
+
+        if PluginHandler.clientRequiringMethods.contains(call.method),
+            SwiftTwilioConversationsPlugin.chatListener?.chatClient == nil {
+            return result(FlutterError(
+                code: "CLIENT_NOT_INITIALIZED",
+                message: "Chat client is not initialized or has been shut down",
+                details: nil))
+        }
+
         switch call.method {
         case "debug":
             debug(call, result: result)
@@ -162,15 +227,30 @@ public class PluginHandler {
 
         let flutterResult = result
 
+        // Shut down any previous client before replacing our only strong reference to it.
+        // Overwriting the reference while its twilsock transport was still live is what
+        // freed clients mid-flight and crashed in TwilioTwilsockLib (BK-6201).
+        //
+        // Contract: Dart must call ChatClient.shutdown() before create() — this teardown is
+        // a native safety net only; Dart-side Channel caches are cleared exclusively by
+        // shutdown(), and channels that survive a bare create() silently stop receiving
+        // events. Note this also means a failed create() leaves NO client (the old one is
+        // gone): callers must retry create(), not fall back to the previous client.
+        ChatClientMethods.tearDownClient()
         SwiftTwilioConversationsPlugin.chatListener = ChatListener(token, properties)
 
         TwilioConversationsClient.conversationsClient(withToken: token, properties: properties, delegate: SwiftTwilioConversationsPlugin.chatListener, completion: {(result: TCHResult, chatClient: TwilioConversationsClient?) -> Void in
-            if result.isSuccessful {
-                SwiftTwilioConversationsPlugin.debug("TwilioConversationsPlugin.create => ChatClient.create onSuccess: myIdentity is '\(chatClient?.user?.identity ?? "unknown")'")
+            if result.isSuccessful, let chatClient = chatClient {
+                SwiftTwilioConversationsPlugin.debug("TwilioConversationsPlugin.create => ChatClient.create onSuccess: myIdentity is '\(chatClient.user?.identity ?? "unknown")'")
                 SwiftTwilioConversationsPlugin.chatListener?.chatClient = chatClient
                 flutterResult(Mapper.chatClientToDict(chatClient))
             } else {
                 SwiftTwilioConversationsPlugin.debug("TwilioConversationsPlugin.create => ChatClient.create onError: \(String(describing: result.error))")
+                let error = result.error as NSError?
+                flutterResult(FlutterError(
+                    code: "\(error?.code ?? 0)",
+                    message: "Failed to create client: \(error?.description ?? "unknown error")",
+                    details: nil))
             }
             } as TCHTwilioClientCompletion)
     }

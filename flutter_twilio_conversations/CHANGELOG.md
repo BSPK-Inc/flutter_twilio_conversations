@@ -1,3 +1,24 @@
+## 2.1.0+20
+
+Fixes the native Twilsock transport crashes (SIGABRT / EXC_BAD_ACCESS) tracked as BK-6201.
+
+### Both platforms
+* Every method that requires a live client now fails fast with `CLIENT_NOT_INITIALIZED` when the client is missing or shut down, instead of never resolving the Dart `await` (the method-channel result was previously only delivered from inside SDK callbacks that a null client never reached). Unknown method names still report `notImplemented`.
+* The notification handlers (`registerForNotification` / `unregisterForNotification` / iOS `handleReceivedNotification`), which legitimately do some work without a client, also resolve with `CLIENT_NOT_INITIALIZED` at the point where they need one instead of hanging. iOS `unregisterForNotification` no longer resolves its result twice.
+
+### iOS
+* Updated Twilio Conversations iOS SDK from 4.0.2 to [4.0.9](https://www.twilio.com/docs/conversations/ios/changelog) (SwiftPM only): upstream fixed shutdown crashes, transport race conditions, and the `updateToken`-vs-`shutdown` race in 4.0.3–4.0.9.
+* `ChatClient#shutdown` now tears down every plugin-level reference (client, listener, channel stream handlers) instead of leaving dangling statics.
+* `create` shuts down any existing client before replacing it, closing a use-after-free window during re-login.
+* `create` and `Messages#sendMessage` report failures via the method-channel result instead of silently hanging the Dart `await`; `sendMessage` fails fast with `CLIENT_NOT_INITIALIZED` when no client exists.
+* `sendMessage` media fixes: media without a filename no longer hangs (falls back to `image.jpeg`), the provided filename is honored, the media input stream is no longer force-unwrapped, and media now attaches to the same message as body/attributes.
+* `updateToken` resolves the Dart `await` even when the SDK reports failure without an error object.
+* **Breaking:** the CocoaPods podspec was removed — Twilio stopped publishing to CocoaPods after SDK 4.0.2, so a pods build could only ever ship the SDK without these crash fixes. SwiftPM (stable Flutter 3.44+, which introduced the generated FlutterFramework package this plugin depends on) is the only iOS build path; building with SwiftPM disabled now fails at pod install time instead of silently downgrading. The Flutter constraint was raised accordingly.
+
+### Android
+* `ChatClient#shutdown` / `create` teardown parity with iOS.
+* **Breaking:** `create` is no longer idempotent — it tears down and replaces an existing client instead of returning it (the reused client kept a connection authenticated with the previous token). Always call `shutdown` before `create`; after a failed `create` there is no client, so retry `create` rather than assuming the old client survives. The `region` / `deferCA` mismatch validation was removed along with the reuse path.
+
 ## 2.0.9+19
 
 ### Android

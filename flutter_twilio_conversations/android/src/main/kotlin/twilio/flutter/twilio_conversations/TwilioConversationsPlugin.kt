@@ -22,8 +22,6 @@ class TwilioConversationsPlugin : FlutterPlugin {
 
         // One Twilio conversation client and each Flutter engine will have it's own listener
         var chatClient: ConversationsClient? = null
-        var chatClientRegion: String? = null
-        var chatClientDeferCA: Boolean? = null
     }
 
     private lateinit var methodChannel: MethodChannel
@@ -38,7 +36,8 @@ class TwilioConversationsPlugin : FlutterPlugin {
 
     lateinit var messenger: BinaryMessenger
 
-    lateinit var chatListener: ChatListener
+    // Null when no client exists (before the first create() or after tearDownClient()).
+    var chatListener: ChatListener? = null
 
     var mediaProgressSink: EventChannel.EventSink? = null
 
@@ -76,14 +75,19 @@ class TwilioConversationsPlugin : FlutterPlugin {
         chatChannel = EventChannel(messenger, "flutter_twilio_conversations/room")
         chatChannel.setStreamHandler(object : EventChannel.StreamHandler {
             override fun onListen(arguments: Any?, events: EventChannel.EventSink) {
+                val listener = chatListener
+                if (listener == null) {
+                    debug("TwilioConversationsPlugin.onAttachedToEngine => Chat eventChannel attached with no chatListener (client shut down or not created); client events will not be delivered until create() runs")
+                    return
+                }
                 debug("TwilioConversationsPlugin.onAttachedToEngine => Chat eventChannel attached")
-                chatListener.events = events
-                chatClient?.addListener(chatListener)
+                listener.events = events
+                chatClient?.addListener(listener)
             }
 
             override fun onCancel(arguments: Any?) {
                 debug("TwilioConversationsPlugin.onAttachedToEngine => Chat eventChannel detached")
-                chatListener.events = null
+                chatListener?.events = null
             }
         })
 
@@ -142,7 +146,12 @@ class TwilioConversationsPlugin : FlutterPlugin {
         val token: String = call.argument<String>("token")
                 ?: return result.error("MISSING_PARAMS", "The parameter 'token' was not given", null)
 
-        chatClient?.registerFCMToken(ConversationsClient.FCMToken(token), object : StatusListener {
+        // Resolve instead of hanging the Dart await: with a null client the SDK callback
+        // below would never run and the result would never be delivered.
+        val chatClient = chatClient
+                ?: return result.error("CLIENT_NOT_INITIALIZED", "Chat client is not initialized or has been shut down", null)
+
+        chatClient.registerFCMToken(ConversationsClient.FCMToken(token), object : StatusListener {
             override fun onSuccess() {
                 try {
                     debug("TwilioConversationsPlugin.registerForNotification => registered with FCM $token")
@@ -170,7 +179,12 @@ class TwilioConversationsPlugin : FlutterPlugin {
         val token: String = call.argument<String>("token")
                 ?: return result.error("MISSING_PARAMS", "The parameter 'token' was not given", null)
 
-        chatClient?.unregisterFCMToken(ConversationsClient.FCMToken(token), object : StatusListener {
+        // Resolve instead of hanging the Dart await: with a null client the SDK callback
+        // below would never run and the result would never be delivered.
+        val chatClient = chatClient
+                ?: return result.error("CLIENT_NOT_INITIALIZED", "Chat client is not initialized or has been shut down", null)
+
+        chatClient.unregisterFCMToken(ConversationsClient.FCMToken(token), object : StatusListener {
             override fun onSuccess() {
                 try {
                     debug("TwilioConversationsPlugin.unregisterForNotification => unregistered with FCM $token")

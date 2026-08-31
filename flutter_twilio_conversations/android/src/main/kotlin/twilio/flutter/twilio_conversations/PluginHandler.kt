@@ -22,9 +22,70 @@ import twilio.flutter.twilio_conversations.methods.UserMethods
 import twilio.flutter.twilio_conversations.methods.UsersMethods
 
 class PluginHandler(private val pluginInstance: TwilioConversationsPlugin, private val applicationContext: Context) : MethodCallHandler {
+    companion object {
+        // Every method in the `when` below that dereferences TwilioConversationsPlugin.chatClient
+        // and delivers its Result only from inside an SDK callback — with a null client the SDK
+        // is never invoked and the Dart await would hang forever, so these are rejected up front
+        // with CLIENT_NOT_INITIALIZED instead. Keyed on client-requiring names (rather than
+        // exempting the few that work without a client) so that unknown method names still fall
+        // through the `when` to notImplemented.
+        //
+        // MUST stay in sync with the `when` below: a client-requiring branch missing from this
+        // set reverts to the old hang-on-null-client behavior.
+        private val clientRequiringMethods = setOf(
+            "ChatClient#updateToken",
+            "User#unsubscribe",
+            "Users#getChannelUserDescriptors",
+            "Users#getUserDescriptor",
+            "Users#getAndSubscribeUser",
+            "Channel#join",
+            "Channel#leave",
+            "Channel#typing",
+            "Channel#destroy",
+            "Channel#getMessagesCount",
+            "Channel#getUnreadMessagesCount",
+            "Channel#getMembersCount",
+            "Channel#setAttributes",
+            "Channel#getFriendlyName",
+            "Channel#setFriendlyName",
+            "Channel#getNotificationLevel",
+            "Channel#setNotificationLevel",
+            "Channel#getUniqueName",
+            "Channel#setUniqueName",
+            "Channels#getChannel",
+            "Channels#getPublicChannelsList",
+            "Channels#getUserChannelsList",
+            "Channels#createChannel",
+            "Member#getUserDescriptor",
+            "Member#getAndSubscribeUser",
+            "Member#setAttributes",
+            "Members#getMembersList",
+            "Members#getMember",
+            "Members#addByIdentity",
+            "Members#inviteByIdentity",
+            "Members#removeByIdentity",
+            "Message#updateMessageBody",
+            "Message#setAttributes",
+            "Message#getMedia",
+            "Messages#sendMessage",
+            "Messages#removeMessage",
+            "Messages#getMessagesBefore",
+            "Messages#getMessagesAfter",
+            "Messages#getLastMessages",
+            "Messages#getMessageByIndex",
+            "Messages#setLastReadMessageIndexWithResult",
+            "Messages#advanceLastReadMessageIndexWithResult",
+            "Messages#setAllMessagesReadWithResult",
+            "Messages#setNoMessagesReadWithResult"
+        )
+    }
+
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         Log.d("TwilioInfo", "TwilioConversationsPlugin.onMethodCall => received ${call.method}")
         if (call.method != "cancel" && call.method != "listen") {
+            if (call.method in clientRequiringMethods && TwilioConversationsPlugin.chatClient == null) {
+                return result.error("CLIENT_NOT_INITIALIZED", "Chat client is not initialized or has been shut down", null)
+            }
             when (call.method) {
                 "debug" -> debug(call, result)
                 "create" -> create(call, result)
@@ -33,7 +94,7 @@ class PluginHandler(private val pluginInstance: TwilioConversationsPlugin, priva
                 "handleReceivedNotification" -> pluginInstance.handleReceivedNotification(call, result)
 
                 "ChatClient#updateToken" -> ChatClientMethods.updateToken(call, result)
-                "ChatClient#shutdown" -> ChatClientMethods.shutdown(call, result)
+                "ChatClient#shutdown" -> ChatClientMethods.shutdown(pluginInstance, call, result)
 
                 "User#unsubscribe" -> UserMethods.unsubscribe(call, result)
 
@@ -108,23 +169,16 @@ class PluginHandler(private val pluginInstance: TwilioConversationsPlugin, priva
         val callDeferCA = propertiesObj["deferCA"] as Boolean?
 
 
-        val currentChatClient = TwilioConversationsPlugin.chatClient
-        val currentChatClientRegion = TwilioConversationsPlugin.chatClientRegion
-        val currentChatClientDeferCA = TwilioConversationsPlugin.chatClientDeferCA
-
         try {
-            if (currentChatClient == null) {
-                Log.d("TwilioInfo", "TwilioConversationsPlugin.create => making a fresh ChatClient")
-            } else {
-                Log.w("TwilioInfo", "TwilioConversationsPlugin.create => ChatClient is already exists.")
-                if (callRegion != currentChatClientRegion) {
-                    result.error("ERROR", "ChatClient already exists with a different region", null)
-                    return
-                } else if (callDeferCA != currentChatClientDeferCA) {
-                    result.error("ERROR", "ChatClient already exists with a different deferCA", null)
-                    return
-                }
+            // Tear down any previous client before creating a new one, mirroring iOS. Reusing
+            // the existing client here would keep a connection authenticated with the previous
+            // token (e.g. a prior user's) alive; a fresh create with the new token is always
+            // correct now that the app manages the client lifecycle explicitly (BK-6201).
+            if (TwilioConversationsPlugin.chatClient != null) {
+                Log.w("TwilioInfo", "TwilioConversationsPlugin.create => ChatClient already exists, tearing it down first")
+                ChatClientMethods.tearDownClient(pluginInstance)
             }
+            Log.d("TwilioInfo", "TwilioConversationsPlugin.create => making a fresh ChatClient")
 
             val propertiesBuilder = ConversationsClient.Properties.newBuilder()
             if (callRegion != null) {
@@ -137,21 +191,14 @@ class PluginHandler(private val pluginInstance: TwilioConversationsPlugin, priva
                 propertiesBuilder.setDeferCertificateTrustToPlatform(callDeferCA)
             }
 
-            pluginInstance.chatListener = ChatListener(pluginInstance, propertiesBuilder.createProperties())
+            val chatListener = ChatListener(pluginInstance, propertiesBuilder.createProperties())
+            pluginInstance.chatListener = chatListener
 
-            if (currentChatClient != null) {
-                val chatClientMap = Mapper.chatClientToMap(pluginInstance, currentChatClient)
-                result.success(chatClientMap)
-                return
-            }
-
-            ConversationsClient.create(applicationContext, token, pluginInstance.chatListener.properties, object : CallbackListener<ConversationsClient> {
+            ConversationsClient.create(applicationContext, token, chatListener.properties, object : CallbackListener<ConversationsClient> {
                 override fun onSuccess(chatClient: ConversationsClient) {
                     Log.d("Twilio init success", "TwilioConversationsPlugin.create => ChatClient.create onSuccess: myIdentity is '${chatClient.myIdentity}'")
                     try {
                         TwilioConversationsPlugin.chatClient = chatClient
-                        TwilioConversationsPlugin.chatClientRegion = callRegion
-                        TwilioConversationsPlugin.chatClientDeferCA = callDeferCA
 
                         val chatClientMap = Mapper.chatClientToMap(pluginInstance, chatClient)
                         result.success(chatClientMap)

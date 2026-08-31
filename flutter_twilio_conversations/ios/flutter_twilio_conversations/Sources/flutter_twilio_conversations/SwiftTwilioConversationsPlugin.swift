@@ -86,22 +86,24 @@ public class SwiftTwilioConversationsPlugin: NSObject, FlutterPlugin {
             UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { (granted: Bool, _: Error?) in
                 SwiftTwilioConversationsPlugin.debug("User responded to permissions request: \(granted)")
                 if granted {
-                    do {
-                        DispatchQueue.main.async {
-                            SwiftTwilioConversationsPlugin.debug("Requesting APNS token")
-                            SwiftTwilioConversationsPlugin.reasonForTokenRetrieval = "register"
-                            let dataToken = Data(deviceToken.utf8)
-                            let stringToken = String(decoding: dataToken, as: UTF8.self)
-                            // length must be 32 bytes but gives 64
-                            UIApplication.shared.registerForRemoteNotifications()
-                            SwiftTwilioConversationsPlugin.chatListener?.chatClient?.register(withNotificationToken: self.globalToken ?? dataToken, completion: { (result: TCHResult) in
-                                SwiftTwilioConversationsPlugin.debug("registered for notifications: \(result.isSuccessful) for stringToken: \(stringToken) and global: \(String(describing: self.globalToken?.description))")
-                                SwiftTwilioConversationsPlugin.sendNotificationEvent("registered", data: ["result": result.isSuccessful], error: result.error)
-                                flutterResult("Registered for notifications: \(result.isSuccessful) for stringToken: \(stringToken) and global: \(String(describing: self.globalToken?.description))")
-                            })
+                    DispatchQueue.main.async {
+                        SwiftTwilioConversationsPlugin.debug("Requesting APNS token")
+                        SwiftTwilioConversationsPlugin.reasonForTokenRetrieval = "register"
+                        let dataToken = Data(deviceToken.utf8)
+                        let stringToken = String(decoding: dataToken, as: UTF8.self)
+                        // The permission prompt and APNS registration above are useful without a
+                        // client, but the Twilio registration below is not — resolve with an error
+                        // instead of leaving the Dart await hanging when the client is gone.
+                        // length must be 32 bytes but gives 64
+                        UIApplication.shared.registerForRemoteNotifications()
+                        guard let chatClient = SwiftTwilioConversationsPlugin.chatListener?.chatClient else {
+                            return flutterResult(FlutterError(code: "CLIENT_NOT_INITIALIZED", message: "Chat client is not initialized or has been shut down", details: nil))
                         }
-                    } catch let error {
-                        print(error.localizedDescription)
+                        chatClient.register(withNotificationToken: self.globalToken ?? dataToken, completion: { (result: TCHResult) in
+                            SwiftTwilioConversationsPlugin.debug("registered for notifications: \(result.isSuccessful) for stringToken: \(stringToken) and global: \(String(describing: self.globalToken?.description))")
+                            SwiftTwilioConversationsPlugin.sendNotificationEvent("registered", data: ["result": result.isSuccessful], error: result.error)
+                            flutterResult("Registered for notifications: \(result.isSuccessful) for stringToken: \(stringToken) and global: \(String(describing: self.globalToken?.description))")
+                        })
                     }
                 } else {
                     flutterResult("No access granted for Twilio Pushes")
@@ -111,35 +113,47 @@ public class SwiftTwilioConversationsPlugin: NSObject, FlutterPlugin {
     }
 
     public func unregisterForNotification(_ call: FlutterMethodCall, flutterResult: @escaping FlutterResult) {
-        if #available(iOS 10.0, *) {
-            do {
-                DispatchQueue.main.async {
-                    SwiftTwilioConversationsPlugin.debug("Requesting APNS token")
-                    SwiftTwilioConversationsPlugin.reasonForTokenRetrieval = "deregister"
-                    UIApplication.shared.registerForRemoteNotifications()
-                    if (self.globalToken != nil) {
-                        SwiftTwilioConversationsPlugin.chatListener?.chatClient?.deregister(withNotificationToken: self.globalToken!, completion: { (result: TCHResult) in
-                                SwiftTwilioConversationsPlugin.debug("deregistered for notifications: \(result.isSuccessful) for global: \(String(describing: self.globalToken?.description))")
-                                SwiftTwilioConversationsPlugin.sendNotificationEvent("deregistered", data: ["result": result.isSuccessful], error: result.error)
-                                flutterResult("Deregistered for notifications: \(result.isSuccessful) for global: \(String(describing: self.globalToken?.description))")
-                            })
-                    }
-                }
-            } catch let error {
-                        print(error.localizedDescription)
-                    }
+        // Resolve exactly once: previously this method resolved synchronously with nil AND again
+        // from the deregister completion, and with a nil client it silently skipped the
+        // completion path entirely.
+        guard let chatClient = SwiftTwilioConversationsPlugin.chatListener?.chatClient else {
+            return flutterResult(FlutterError(code: "CLIENT_NOT_INITIALIZED", message: "Chat client is not initialized or has been shut down", details: nil))
         }
-        flutterResult(nil)
+        guard let globalToken = globalToken else {
+            // No APNS token cached in this process (e.g. push was registered during an
+            // earlier launch). Fetch one — didRegisterForRemoteNotificationsWithDeviceToken
+            // performs the deregistration when the token arrives, routed by
+            // reasonForTokenRetrieval. Resolve immediately rather than waiting on the
+            // delegate round-trip, matching the pre-existing behavior; still exactly one
+            // resolve on this path.
+            DispatchQueue.main.async {
+                SwiftTwilioConversationsPlugin.debug("Requesting APNS token to deregister")
+                SwiftTwilioConversationsPlugin.reasonForTokenRetrieval = "deregister"
+                UIApplication.shared.registerForRemoteNotifications()
+                flutterResult(nil)
+            }
+            return
+        }
+        DispatchQueue.main.async {
+            SwiftTwilioConversationsPlugin.debug("Requesting APNS token")
+            SwiftTwilioConversationsPlugin.reasonForTokenRetrieval = "deregister"
+            UIApplication.shared.registerForRemoteNotifications()
+            chatClient.deregister(withNotificationToken: globalToken, completion: { (result: TCHResult) in
+                SwiftTwilioConversationsPlugin.debug("deregistered for notifications: \(result.isSuccessful) for global: \(globalToken.description)")
+                SwiftTwilioConversationsPlugin.sendNotificationEvent("deregistered", data: ["result": result.isSuccessful], error: result.error)
+                flutterResult("Deregistered for notifications: \(result.isSuccessful) for global: \(globalToken.description)")
+            })
+        }
     }
 
     // This is called after the client is initialized,
     // to check whether the app was opened via a notification
     public func handleReceivedNotification(_ call: FlutterMethodCall, flutterResult: @escaping FlutterResult) {
       if receivedNotification != nil {
-        if SwiftTwilioConversationsPlugin.chatListener?.chatClient != nil {
+        if let chatClient = SwiftTwilioConversationsPlugin.chatListener?.chatClient {
           // If your reference to the Conversations client exists
           // and is initialized, send the notification to it
-          SwiftTwilioConversationsPlugin.chatListener?.chatClient?.handleNotification(receivedNotification!) { (result) in
+          chatClient.handleNotification(receivedNotification!) { (result) in
             SwiftTwilioConversationsPlugin.debug("Handling Twilio notification: \(String(describing: self.receivedNotification))")
             if !result.isSuccessful {
               // Handling of notification was not successful, retry?
@@ -150,6 +164,10 @@ public class SwiftTwilioConversationsPlugin: NSObject, FlutterPlugin {
               flutterResult("Succeeded to handle Twilio notification: \(String(describing: self.receivedNotification))")
             }
           }
+        } else {
+          // Resolve instead of hanging the Dart await when the client is gone; the
+          // notification stays stored for the next client (see create()).
+          flutterResult(FlutterError(code: "CLIENT_NOT_INITIALIZED", message: "Chat client is not initialized or has been shut down", details: nil))
         }
       } else {
         flutterResult(nil)
@@ -216,7 +234,11 @@ public class SwiftTwilioConversationsPlugin: NSObject, FlutterPlugin {
 
     class ChatStreamHandler: NSObject, FlutterStreamHandler {
         func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
-            guard let chatListener = SwiftTwilioConversationsPlugin.chatListener else { return nil }
+            guard let chatListener = SwiftTwilioConversationsPlugin.chatListener else {
+                SwiftTwilioConversationsPlugin.debug(
+                    "ChatStreamHandler.onListen => no chatListener (client shut down or not created); client events will not be delivered until create() runs")
+                return nil
+            }
             SwiftTwilioConversationsPlugin.debug("ChatStreamHandler.onListen => Chat eventChannel attached")
             chatListener.events = events
             chatListener.chatClient?.delegate = chatListener
