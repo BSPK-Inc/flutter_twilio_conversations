@@ -120,8 +120,19 @@ public class SwiftTwilioConversationsPlugin: NSObject, FlutterPlugin {
             return flutterResult(FlutterError(code: "CLIENT_NOT_INITIALIZED", message: "Chat client is not initialized or has been shut down", details: nil))
         }
         guard let globalToken = globalToken else {
-            // No APNS token was ever obtained, so there is nothing to deregister.
-            return flutterResult(nil)
+            // No APNS token cached in this process (e.g. push was registered during an
+            // earlier launch). Fetch one — didRegisterForRemoteNotificationsWithDeviceToken
+            // performs the deregistration when the token arrives, routed by
+            // reasonForTokenRetrieval. Resolve immediately rather than waiting on the
+            // delegate round-trip, matching the pre-existing behavior; still exactly one
+            // resolve on this path.
+            DispatchQueue.main.async {
+                SwiftTwilioConversationsPlugin.debug("Requesting APNS token to deregister")
+                SwiftTwilioConversationsPlugin.reasonForTokenRetrieval = "deregister"
+                UIApplication.shared.registerForRemoteNotifications()
+                flutterResult(nil)
+            }
+            return
         }
         DispatchQueue.main.async {
             SwiftTwilioConversationsPlugin.debug("Requesting APNS token")
