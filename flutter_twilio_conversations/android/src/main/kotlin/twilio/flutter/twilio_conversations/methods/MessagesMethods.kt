@@ -40,19 +40,19 @@ object MessagesMethods {
                             channel.prepareMessage().addMedia(FileInputStream(input), mimeType, "image.jpeg", object : MediaUploadListener {
                                 override fun onCompleted(mediaSid: String) {
                                     Log.d("TwilioInfo", "MessagesMethods.sendMessage (Message.addMedia) => onCompleted")
-                                    pluginInstance.mediaProgressSink?.success({
-                                        "mediaProgressListenerId" to options["mediaProgressListenerId"]
-                                        "name" to "completed"
+                                    pluginInstance.mediaProgressSink?.success(mapOf(
+                                        "mediaProgressListenerId" to options["mediaProgressListenerId"],
+                                        "name" to "completed",
                                         "data" to mediaSid
-                                    })
+                                    ))
                                 }
     
                                 override fun onStarted() {
                                     Log.d("TwilioInfo", "MessagesMethods.sendMessage (Message.addMedia) => onStarted")
-                                    pluginInstance.mediaProgressSink?.success({
-                                        "mediaProgressListenerId" to options["mediaProgressListenerId"]
+                                    pluginInstance.mediaProgressSink?.success(mapOf(
+                                        "mediaProgressListenerId" to options["mediaProgressListenerId"],
                                         "name" to "started"
-                                    })        
+                                    ))
                                 }
     
                                 override fun onFailed(errorInfo: ErrorInfo) {
