@@ -1,3 +1,15 @@
+## 2.1.0+21
+
+Fixes the fatal Android crash when sending media with a progress listener, tracked as BK-6236.
+
+### Android
+* `MessagesMethods.sendMessage` passed a Kotlin lambda instead of a `Map` to the media progress `EventSink` in both `onStarted` and `onCompleted`. `StandardMessageCodec` cannot encode it and throws; the Twilio SDK escalates any exception thrown inside a listener to a fatal `ListenerException`. Both callbacks now emit `mapOf(...)`, matching iOS.
+
+### Dart
+* `MessageOptions.withMediaProgressListener` never cancelled its broadcast-stream subscription, so every media send leaked a listener that stayed alive for the lifetime of the isolate. `Messages.sendMessage` now releases the listener once the send settles, whether it succeeded or failed.
+* Progress listeners are now multiplexed over one shared channel subscription keyed by listener id, instead of each send opening its own `receiveBroadcastStream()`. Flutter keeps a single handler per channel name, so the old scheme let a second concurrent send silently replace the first one's listener. The shared subscription opens with the first in-flight listener and closes with the last.
+* The listener id is now a monotonic counter instead of `millisecondsSinceEpoch`, so ids stay unique even for sends prepared within the same millisecond.
+
 ## 2.1.0+20
 
 Fixes the native Twilsock transport crashes (SIGABRT / EXC_BAD_ACCESS) tracked as BK-6201.

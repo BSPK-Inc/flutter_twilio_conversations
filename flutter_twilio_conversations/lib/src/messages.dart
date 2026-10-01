@@ -26,6 +26,11 @@ class Messages {
       return Message._fromMap(messageMap, this);
     } on PlatformException catch (err) {
       throw TwilioConversationsClient._convertException(err);
+    } finally {
+      // The native side has emitted its last progress event by the time the
+      // method-channel result arrives, so it is safe to drop the listener
+      // here. Without this every call leaked a broadcast-stream subscription.
+      await options._disposeMediaProgressListener();
     }
   }
 
